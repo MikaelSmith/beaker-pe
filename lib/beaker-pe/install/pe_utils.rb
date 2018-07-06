@@ -525,9 +525,6 @@ module Beaker
         # @note on windows, the +:ruby_arch+ host parameter can determine in addition
         # to other settings whether the 32 or 64bit install is used
         #
-        # @note for puppet-agent install options, refer to
-        #   {Beaker::DSL::InstallUtils::FOSSUtils#install_puppet_agent_pe_promoted_repo_on}
-        #
         # @api private
         #
         def do_install hosts, opts = {}
@@ -712,19 +709,14 @@ module Beaker
             install_hosts.delete(database) if pre30database and database != master and database != dashboard
           end
 
+          dev_builds_url  = ENV['DEV_BUILDS_URL'] || 'http://builds.delivery.puppetlabs.net'
           install_hosts.each do |host|
 
             if agent_only_check_needed && hosts_agent_only.include?(host) || install_via_msi?(host)
               host['type'] = 'aio'
-              install_params = {
-                :puppet_agent_version => get_puppet_agent_version(host, opts),
-                :puppet_agent_sha => host[:puppet_agent_sha] || opts[:puppet_agent_sha],
-                :pe_ver => host[:pe_ver] || opts[:pe_ver],
-                :puppet_collection => host[:puppet_collection] || opts[:puppet_collection],
-                :pe_promoted_builds_url => host[:pe_promoted_builds_url] || opts[:pe_promoted_builds_url]
-              }
-              install_params.delete(:pe_promoted_builds_url) if install_params[:pe_promoted_builds_url].nil?
-              install_puppet_agent_pe_promoted_repo_on(host, install_params)
+              sha = host[:puppet_agent_sha] || opts[:puppet_agent_sha] || get_puppet_agent_version
+              install_from_build_data_url('puppet-agent', "#{dev_builds_url}/puppet-agent/#{sha}/artifacts/#{sha}.yaml", host)
+
               # 1 since no certificate found and waitforcert disabled
               acceptable_exit_codes = [0, 1]
               acceptable_exit_codes << 2 if opts[:type] == :upgrade
@@ -1272,7 +1264,6 @@ module Beaker
         # @option opts [String] :puppet_agent_sha The sha of puppet-agent to install, defaults to puppet_agent_version.
         #                                 Required for PE agent only hosts on 4.0+
         # @option opts [String] :pe_ver   The version of PE (will also use host['pe_ver']), defaults to '4.0'
-        # @option opts [String] :puppet_collection   The puppet collection for puppet-agent install.
         #
         # @example
         #  install_pe_on(hosts, {})
